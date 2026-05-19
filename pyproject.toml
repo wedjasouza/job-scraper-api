@@ -1,0 +1,13 @@
+[project]
+name = "remoteok-job-scraper"
+version = "0.1.0"
+description = "RemoteOK job scraper and FastAPI search API"
+requires-python = ">=3.11"
+
+dependencies = [
+    "beatifulsoup4",
+    "emoji",
+    "playwright",
+    "fastapi[standard]",
+    "sqlmodel"
+]
