@@ -238,7 +238,9 @@ def get_location_tokens(locations: list) -> list:
 
     for location in locations:
         for word in noise_words:
-            location = location.replace(word, "")
+            pattern = rf'\b{word}\b'
+            location = re.sub(pattern, "", location)
+            location = re.sub(r"[^a-zA-Z\s]", "", location)
             location = location.strip()
         tokens_list = build_tokens_list(location)
         if tokens_list:
