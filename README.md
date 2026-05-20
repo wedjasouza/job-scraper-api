@@ -1,10 +1,10 @@
 # RemoteOK Job Scraper API
 
 A Python job scraping and search API built with Playwright, BeautifulSoup,
-FastAPI, SQLModel, and SQLite.
+FastAPI, SQLModel, and PostgreSQL.
 
 This project scrapes remote job listings from RemoteOK, stores them in a
-SQLite database, and exposes a searchable REST API.
+PostgreSQL database, and exposes a searchable REST API.
 
 ## Features
 
@@ -28,7 +28,7 @@ SQLite database, and exposes a searchable REST API.
 - FastAPI
 - SQLModel
 - SQLAlchemy
-- SQLite
+- PostgreSQL
 - Playwright
 - BeautifulSoup4
 
@@ -141,9 +141,10 @@ job-scraper-api/
 │   ├── job_parser.py
 │   ├── map_functions.py
 │   ├── mappings.py
+│   ├── models.py
 │   └── main.py
 │
-├── outputs/
+├── .env
 ├── pyproject.toml
 ├── requirements.txt
 └── README.md
@@ -155,16 +156,10 @@ job-scraper-api/
 
 ### Scrape Jobs
 
-Scrape 100 jobs into the default database:
+Scrape 100 jobs into the database:
 
 ```bash
 python -m remoteok_api.cli
-```
-
-Specify a custom database path:
-
-```bash
-python -m remoteok_api.cli --db outputs/custom.db
 ```
 
 Specify a scrape limit:
@@ -186,23 +181,6 @@ python -m remoteok_api.cli --verbose
 Start the FastAPI server:
 
 ```bash
-uvicorn remoteok_api.main:app --reload
-```
-
-Specify a custom database:
-
-### Windows PowerShell
-
-```powershell
-$env:JOB_DB="outputs/custom.db"
-uvicorn remoteok_api.main:app --reload
-```
-
-### Mac/Linux
-
-```bash
-export JOB_DB=outputs/custom.db
-
 uvicorn remoteok_api.main:app --reload
 ```
 
