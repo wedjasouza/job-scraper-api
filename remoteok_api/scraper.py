@@ -20,6 +20,7 @@ from playwright.sync_api import (
     Locator,
     TimeoutError as PlaywrightTimeoutError
 )
+from sqlmodel import Session
 from remoteok_api.job_parser import process_jobs
 
 
@@ -158,7 +159,7 @@ def process_scroll_iteration(
         jobs: list[dict],
         limit: int,
         session_seen_slugs: set[str],
-        db_path: str,
+        session: Session,
 ) -> ScrollResult:
     """
     Process a single scroll iteration and extract new, unique jobs.
@@ -178,8 +179,8 @@ def process_scroll_iteration(
     :param session_seen_slugs:
         Seen job slugs for deduplication.
 
-    :param db_path:
-        SQLite database path.
+    :param session:
+        The database session.
 
     :return:
         Tuple containing:
@@ -193,7 +194,7 @@ def process_scroll_iteration(
     job_elements = extract_job_elements(page)
     new_elements = job_elements[previous_visible_count:]
     logging.info("Visible elements: %s", len(job_elements))
-    new_jobs = process_jobs(new_elements[:remaining], session_seen_slugs, db_path)
+    new_jobs = process_jobs(new_elements[:remaining], session_seen_slugs, session)
     return ScrollResult(
         new_jobs,
         len(job_elements)
@@ -245,7 +246,7 @@ def collect_jobs_until_limit(
         max_empty_scrolls: int,
         page: Page,
         session_seen_slugs: set,
-        db_path: str,
+        session: Session,
 ) -> None:
     """
     Continuously scroll and collect jobs until a stopping condition is reached.
@@ -276,8 +277,8 @@ def collect_jobs_until_limit(
     :param session_seen_slugs:
         Set of job slugs already processed during the session.
 
-    :param db_path:
-        Path to the SQLite database used for deduplication.
+    :param session:
+        The database session.
     """
 
     while len(state.jobs) < limit and state.empty_scrolls < max_empty_scrolls:
@@ -288,7 +289,7 @@ def collect_jobs_until_limit(
             state.jobs,
             limit,
             session_seen_slugs,
-            db_path
+            session
         )
         state.jobs.extend(scroll_result.new_jobs)
         if state.jobs and len(state.jobs) == previous_new_jobs_count:
@@ -302,7 +303,7 @@ def collect_jobs_until_limit(
         state.previous_visible_count = scroll_result.visible_count
 
 
-def scrape_jobs_dynamic(url: str, db_path: str, limit: int = 100) -> list[dict]:
+def scrape_jobs_dynamic(url: str, session: Session, limit: int = 100) -> list[dict]:
     """
     Scrape unique job listings from RemoteOK using Playwright.
 
@@ -314,8 +315,8 @@ def scrape_jobs_dynamic(url: str, db_path: str, limit: int = 100) -> list[dict]:
     :param url:
         The RemoteOK URL to scrape.
 
-    :param db_path:
-        Path to the SQLite database used for duplicate detection.
+    :param session:
+        The database session.
 
     :param limit:
         The maximum number of unique jobs to collect.
@@ -333,7 +334,7 @@ def scrape_jobs_dynamic(url: str, db_path: str, limit: int = 100) -> list[dict]:
             page = load_page(url, browser)
             logging.info("Requested %s jobs", limit)
             job_elements = extract_job_elements(page)
-            jobs = process_jobs(job_elements, session_seen_slugs, db_path)
+            jobs = process_jobs(job_elements, session_seen_slugs, session)
             max_empty_scrolls = 5
             empty_scrolls = 0
             previous_visible_count = len(job_elements)
@@ -344,7 +345,7 @@ def scrape_jobs_dynamic(url: str, db_path: str, limit: int = 100) -> list[dict]:
                 max_empty_scrolls,
                 page,
                 session_seen_slugs,
-                db_path
+                session
             )
             logging.info("Collected %s unique jobs", len(state.jobs))
             return state.jobs

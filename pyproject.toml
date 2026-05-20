@@ -9,5 +9,6 @@ dependencies = [
     "emoji",
     "playwright",
     "fastapi[standard]",
-    "sqlmodel"
+    "sqlmodel",
+	"psycopg[binary]"
 ]

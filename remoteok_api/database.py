@@ -13,110 +13,76 @@ Path exist.
 """
 
 
-import sqlite3
-import json
-from pathlib import Path
+import os
+from collections.abc import Generator
+from dotenv import load_dotenv
+from sqlmodel import Session, create_engine, SQLModel, select
+from remoteok_api.models import Job
 
 
-def create_table(db_path: Path) -> None:
+# load environment variables
+load_dotenv()
+
+# Get database from environment variable
+DATABASE_URL = os.environ["DATABASE_URL"]
+
+engine = create_engine(DATABASE_URL)
+
+
+def create_tables() -> None:
     """
-    This function creates a table, ensuring that the table exists and that
-    the path exists.
-
-    :param db_path:
-        The Path to the database.
-
-    :return:
-        None.
+    Create database tables if they do not already exist.
     """
 
-    db_path.parent.mkdir(exist_ok=True)
-    connection = sqlite3.connect(db_path)
-    cursor = connection.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS jobs (
-            job_slug TEXT PRIMARY KEY,
-            title TEXT NOT NULL,
-            company_name TEXT NOT NULL,
-            url TEXT NOT NULL,
-            posted_at TEXT NOT NULL,
-            salary_min INTEGER,
-            salary_max INTEGER,
-            locations TEXT,
-            location_tokens TEXT,
-            employment_types TEXT,
-            tags TEXT
-        )
-    """)
-    connection.commit()
-    cursor.close()
+    SQLModel.metadata.create_all(engine)
 
 
-def insert_jobs(jobs: list[dict], db_path: Path) -> None:
+def get_session() -> Generator[Session, None, None]:
     """
-    Insert scraped job dictionaries into a SQLite database.
+    Create and yield a database session.
+    """
 
-    This function processes a list of job dictionaries, converts list-based
-    fields into JSON strings for storage, normalizes optional fields such as
-    salary and employment types, and inserts each job into the database
-    specified by db_path.
+    with Session(engine) as session:
+        yield session
+
+
+def insert_jobs(jobs: list[dict], session: Session) -> None:
+    """
+    Insert scraped job dictionaries into the database
 
     :param jobs:
-        A list of dictionaries representing scraped jobs.
+        List of scraped job dictionaries.
 
-    :param db_path:
-        Path to a SQLite database file.
+    :param session:
+        Database session.
 
     :return:
         None
     """
-    connection = sqlite3.connect(db_path)
-    cursor = connection.cursor()
-    for job in jobs:
-        tags = json.dumps(job["tags"])
-        if job["employment_types"]:
-            employment_types = json.dumps(job["employment_types"])
-        else:
-            employment_types = None
-        locations = json.dumps(job["locations"])
-        location_tokens = json.dumps(job["location_tokens"])
-        if job["salary"]:
-            salary_min = job["salary"]["min"]
-            salary_max = job["salary"]["max"]
-        else:
-            salary_min = None
-            salary_max = None
-        job_slug = job["job_slug"]
-        title = job["title"]
-        company_name = job["company_name"]
-        url = job["url"]
-        posted_at = job["posted_at"]
-        job_tuple = (job_slug, title, company_name, url,
-                     posted_at, salary_min, salary_max,
-                     locations, location_tokens, employment_types,
-                     tags)
-        cursor.execute("""INSERT OR IGNORE INTO jobs (job_slug, title,
-        company_name, url, posted_at, salary_min, salary_max, locations, location_tokens,
-        employment_types, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", job_tuple)
-    connection.commit()
-    connection.close()
+
+    job_models = [Job(**job_data) for job_data in jobs]
+
+    try:
+        session.add_all(job_models)
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
 
 
-def get_existing_slugs(db_path: Path) -> set[str]:
+def get_existing_slugs(session: Session) -> set[str]:
     """
-    This function returns a list of existing job slugs from the database.
+    Return a set of existing job slugs from the database.
 
-    :param db_path:
-        Path to a SQLite database file.
+    :param session:
+        Database session.
 
     :return:
         Set of existing job slugs.
     """
-    with sqlite3.connect(db_path) as connection:
-        cursor = connection.cursor()
-        query = """
-            SELECT job_slug FROM jobs
-        """
-        cursor.execute(query)
-        slugs = cursor.fetchall()
-    return {slug[0] for slug in slugs}
+
+    statement = select(Job.job_slug)
+
+    slugs = session.exec(statement).all()
+
+    return set(slugs)

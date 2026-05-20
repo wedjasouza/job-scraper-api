@@ -10,17 +10,15 @@ pipeline, and stores scraped jobs in a SQLite database.
 
 import argparse
 import logging
-from pathlib import Path
+from sqlmodel import Session
 from remoteok_api.scraper import scrape_jobs_dynamic
-from remoteok_api.database import create_table, insert_jobs
+from remoteok_api.database import create_tables, insert_jobs, engine
 
 
 parser = argparse.ArgumentParser(description="Scrape jobs from remoteok.com and upload to database")
 
 
 parser.add_argument("-v", "--verbose", action = "store_true", help = "Enable verbose output")
-parser.add_argument("--db", dest="db", type = str, default="outputs/jobs.db",
-                    help = "The output database path")
 parser.add_argument("--limit", type = int, default = 100,
                     help = "The number of fresh/unseen jobs to scrape")
 
@@ -40,21 +38,18 @@ def main() -> None:
     """
     Run the job scraping pipeline.
 
-    This function reads command-line arguments, normalizes the database filename,
-    creates the SQLite database table if it does not already exist, scrapes job
-    listings from RemoteOK, and inserts the collected jobs into the database.
+    This function reads command-line arguments, creates database table if it
+    does not exist, scrapes job listings from RemoteOK, and inserts the collected
+    jobs into the database.
 
     :return:
         None.
     """
     limit = args.limit
-    db = args.db
-    if not db.endswith(".db"):
-        db += ".db"
-    db_path = Path(db)
-    create_table(db_path)
-    jobs = scrape_jobs_dynamic(URL_HOME, db_path, limit)
-    insert_jobs(jobs, db_path)
+    create_tables()
+    with Session(engine) as session:
+        jobs = scrape_jobs_dynamic(URL_HOME, session, limit)
+        insert_jobs(jobs, session)
 
 
 if __name__ == "__main__":

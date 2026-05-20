@@ -31,6 +31,7 @@ import logging
 from bs4 import BeautifulSoup, Tag
 import emoji
 from playwright.sync_api import Locator
+from sqlmodel import Session
 from remoteok_api.location_utils import get_location_tokens
 from remoteok_api.database import get_existing_slugs
 
@@ -148,7 +149,10 @@ def convert_salary_range(salary_range: str) -> dict | None:
     """
 
     if not salary_range:
-        return None
+        return {
+            "min": None,
+            "max": None,
+        }
     if "-" not in salary_range:
         salary = salary_range.strip("$")
         salary = int(float(salary[:-1]) * 1000)
@@ -241,7 +245,8 @@ def parse_job(job: Tag) -> dict:
         "locations": locations_and_employment_types[0],
         "location_tokens": location_tokens,
         "employment_types": employment_types,
-        "salary": salary,
+        "salary_min": salary["min"],
+        "salary_max": salary["max"],
         "tags": tags[0],
         "url": link,
         "posted_at": posted_at
@@ -266,7 +271,7 @@ def is_duplicate_slug(slug: str, slugs: set) -> bool:
         return True
     return False
 
-def process_jobs(job_elements: list[Locator], seen_slugs: set, db_path: str) -> list[dict]:
+def process_jobs(job_elements: list[Locator], seen_slugs: set, session: Session) -> list[dict]:
     """
     Processes a batch of job elements and returns a list of dictionaries.
 
@@ -282,8 +287,8 @@ def process_jobs(job_elements: list[Locator], seen_slugs: set, db_path: str) -> 
     :param seen_slugs:
         A set of seen slugs for the current scrape session.
 
-    :param db_path:
-        The path to the database file.
+    :param session:
+        The database session.
 
     :return:
         A list of dictionaries representing the parsed job elements to be returned to scraper.py.
@@ -292,7 +297,7 @@ def process_jobs(job_elements: list[Locator], seen_slugs: set, db_path: str) -> 
     jobs = []
     logging.info("Processing batch...")
     logging.info("Received %s jobs", len(job_elements))
-    db_slugs = get_existing_slugs(db_path)
+    db_slugs = get_existing_slugs(session)
     for job_element in job_elements:
         html = job_element.evaluate("node => node.outerHTML")
         job_soup = BeautifulSoup(html, "lxml")

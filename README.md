@@ -9,7 +9,8 @@ SQLite database, and exposes a searchable REST API.
 ## Features
 
 - Dynamic job scraping with Playwright
-- SQLite job storage
+- PostgreSQL database support
+- SQLModel ORM integration
 - FastAPI REST API
 - Job search filtering
 - Salary filtering
@@ -75,6 +76,57 @@ Install Playwright browsers:
 playwright install
 ```
 
+## PostgreSQL Setup
+
+This project uses PostgreSQL for persistent job storage.
+
+Install PostgreSQL locally and create a database:
+
+```sql
+CREATE DATABASE remoteok_jobs;
+```
+
+Create a `.env` file in the project root directory:
+
+```env
+DATABASE_URL=postgresql+psycopg://username:password@localhost:5432/remoteok_jobs
+```
+
+Example:
+
+```env
+DATABASE_URL=postgresql+psycopg://postgres:mypassword@localhost:5432/remoteok_jobs
+```
+
+The application automatically creates required tables on startup.
+
+---
+
+### PostgreSQL Connection Format
+
+```text
+postgresql+psycopg://USERNAME:PASSWORD@HOST:PORT/DATABASE_NAME
+```
+
+Example components:
+
+| Component | Example |
+|---|---|
+| USERNAME | postgres |
+| PASSWORD | mypassword |
+| HOST | localhost |
+| PORT | 5432 |
+| DATABASE_NAME | remoteok_jobs |
+
+---
+
+### Verify PostgreSQL Is Running
+
+Test your connection with:
+
+```bash
+psql -U postgres -d remoteok_jobs
+```
 ---
 
 ## Project Structure

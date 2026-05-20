@@ -13,82 +13,26 @@ import heapq
 import os
 from typing import Annotated
 from datetime import datetime, timedelta, UTC
-from pathlib import Path
 from collections import Counter
 from fastapi import FastAPI, HTTPException, Depends, Query
-from sqlmodel import SQLModel, select, Field, create_engine, Session
-from sqlalchemy import JSON, Column, func
-from pydantic import BaseModel
+from sqlmodel import select, create_engine, Session
+from sqlalchemy import func
+from dotenv import load_dotenv
+from remoteok_api.models import Job, StatsModel
+from remoteok_api.database import get_session
 
 
-class Job(SQLModel, table=True):
-    """
-    Represents a remote job listing stored in the SQLite database.
-
-    This model defines the schema for the jobs table and is used by FastAPI as
-    both a database ORM model and API response model.
-    """
-
-    __tablename__ = "jobs"
-
-    job_slug: str = Field(primary_key=True, sa_column_kwargs={'autoincrement': False})
-    title: str
-    company_name: str
-    url: str
-    posted_at: datetime
-    salary_min: int | None
-    salary_max: int | None
-    locations: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    location_tokens: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    employment_types: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    tags: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+# load environment variables
+load_dotenv()
 
 
-class StatsModel(BaseModel):
-    """
-    Represents aggregate statistics about stored job listings.
+# Get database from environment variable
+DATABASE_URL = os.environ["DATABASE_URL"]
 
-    Used by the statistics endpoint to return summary information such as total
-    jobs, recent jobs, salary availability, remote status, and popular tags.
-    """
-
-    total: int
-    recent: int | None
-    with_salary: int | None
-    remote: int | None
-    top_tags: list[str]
+engine = create_engine(DATABASE_URL)
 
 
-# Read database path from environment variable
-DB_FILE = os.getenv("JOB_DB", "outputs/jobs.db")
-
-# Build absolute SQLite database path
-BASE_DIR = Path(__file__).resolve().parent.parent
-SQLITE_FILE = BASE_DIR / DB_FILE
-
-# Create database directory if it does not exist
-SQLITE_FILE.parent.mkdir(parents=True, exist_ok=True)
-
-# SQLite connection URL for SQLAlchemy
-SQLITE_URL = f"sqlite:///{SQLITE_FILE}"
-
-# SQLite thread configuration for FastAPI
-CONNECT_ARGS = {"check_same_thread": False}
-
-
-engine = create_engine(SQLITE_URL, connect_args=CONNECT_ARGS)
-
-def get_session():
-    """
-    Create and yield a database session.
-
-    This dependency is used by FastAPI endpoints to interact with the SQLite database.
-    """
-
-    with Session(engine) as session:
-        yield session
-
-
+# short location term conversions
 SHORT_LOCATION_TERMS = {
     "us": "usa",
     "uk": "united kingdom"
@@ -287,30 +231,31 @@ def get_stats(
         A dictionary containing database statistics.
     """
 
-    total_count = session.exec(
-        select(func.count()).select_from(Job)
-    ).one()
+    total_count = session.scalar(select(func.count()).select_from(Job))
 
     cutoff = datetime.now(UTC) - timedelta(days=7)
 
-    recent_jobs = session.exec(
-        select(func.count()).select_from(Job)
-        .where(Job.posted_at >= cutoff)
-    ).one()
+    recent_jobs_statement = (select(func.count())
+                             .select_from(Job)
+                             .where(Job.posted_at >= cutoff))
 
-    with_salary = session.exec(
-        select(func.count()).select_from(Job)
-        .where(Job.salary_min.is_not(None))
-    ).one()
+    recent_jobs = session.execute(recent_jobs_statement).scalar()
 
-    remote = session.exec(
-        select(func.count()).select_from(Job)
-        .where(Job.locations.contains("remote"))
-    ).one()
+    salary_statement = (select(func.count())
+                        .select_from(Job)
+                        .where(Job.salary_min.is_not(None)))
 
-    tags = session.exec(
-        select(Job.tags).where(Job.tags.is_not(None))
-    ).all()
+    with_salary = session.execute(salary_statement).scalar()
+
+    remote_statement = (select(func.count())
+                        .select_from(Job)
+                        .where(Job.location_tokens.contains(["remote"])))
+
+    remote = session.execute(remote_statement).scalar()
+
+    tags_statement = select(Job.tags).where(Job.tags is not None)
+
+    tags = session.execute(tags_statement).scalars().all()
 
     tags_lists = list(tags)
 
