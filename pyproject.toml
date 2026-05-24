@@ -5,10 +5,15 @@ description = "RemoteOK job scraper and FastAPI search API"
 requires-python = ">=3.11"
 
 dependencies = [
+    "annotated-doc",
+	"annotated-types",
     "beatifulsoup4",
     "emoji",
     "playwright",
-    "fastapi[standard]",
+    "fastapi",
+	"uvicorn",
+	"python-dotenv",
     "sqlmodel",
-	"psycopg[binary]"
+	"psycopg[binary]",
+	"lxml"
 ]

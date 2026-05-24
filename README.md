@@ -31,6 +31,9 @@ PostgreSQL database, and exposes a searchable REST API.
 - PostgreSQL
 - Playwright
 - BeautifulSoup4
+- Docker
+- Docker Compose
+- React (frontend in progress)
 
 ---
 
@@ -43,6 +46,100 @@ git clone https://github.com/wedjasouza/job-scraper-api.git
 
 cd job-scraper-api
 ```
+
+## Project Structure
+
+```text
+job-scraper-api/
+│
+├── remoteok_api/
+│   ├── cli.py
+│   ├── database.py
+│   ├── scraper.py
+│   ├── job_parser.py
+│   ├── map_functions.py
+│   ├── mappings.py
+│   ├── models.py
+│   └── main.py
+│
+├── .env
+├── pyproject.toml
+├── requirements.txt
+├── .dockerignore
+├── compose.yml
+├── Dockerfile
+├── LICENSE
+└── README.md
+```
+
+## Architecture
+
+```text
+Playwright Scraper
+        ↓
+PostgreSQL Database
+        ↓
+FastAPI API
+        ↓
+React Frontend (in progress)
+```
+
+# Setup Options
+
+## Option 1 - Docker (Recommended)
+
+No local Python environment or PostgreSQL installation required.
+
+### Requirements
+
+- Docker
+- Docker Compose
+
+### Start the application
+
+```bash
+docker compose up --build
+```
+
+The API will be available at:
+
+```text
+http://localhost:8000
+```
+
+Swagger documentation:
+
+```text
+http://localhost:8000/docs
+```
+
+---
+
+### Populate the database
+
+Run the scraper inside the API container:
+
+```bash
+docker compose exec api python -m remoteok_api.cli
+```
+
+This scrapes jobs and inserts them into PostgreSQL.
+
+---
+
+### Stop the application
+
+```bash
+docker compose down
+```
+
+## Option 2 - Local Development (Optional)
+
+### Requirements
+
+- Python 3.12+
+- PostgreSQL
+- virtual environment
 
 Create a virtual environment:
 
@@ -68,6 +165,7 @@ Install dependencies:
 
 ```bash
 pip install -r requirements.txt
+pip install lxml
 ```
 
 Install Playwright browsers:
@@ -76,7 +174,7 @@ Install Playwright browsers:
 playwright install
 ```
 
-## PostgreSQL Setup
+### PostgreSQL Setup
 
 This project uses PostgreSQL for persistent job storage.
 
@@ -126,28 +224,6 @@ Test your connection with:
 
 ```bash
 psql -U postgres -d remoteok_jobs
-```
----
-
-## Project Structure
-
-```text
-job-scraper-api/
-│
-├── remoteok_api/
-│   ├── cli.py
-│   ├── database.py
-│   ├── scraper.py
-│   ├── job_parser.py
-│   ├── map_functions.py
-│   ├── mappings.py
-│   ├── models.py
-│   └── main.py
-│
-├── .env
-├── pyproject.toml
-├── requirements.txt
-└── README.md
 ```
 
 ---
@@ -243,13 +319,19 @@ GET /jobs/search?q=python&location=usa&salary_min=100000
 
 ## Future Improvements
 
-- Retry handling for Playwright
-- PostgreSQL support
-- Docker support
 - Async scraping
 - Background scheduled scraping
 - Pagination
 - Authentication
+- Frontend (React)
+
+---
+
+## Author
+
+Wedja Souza  
+- GitHub: https://github.com/wedjasouza
+- LinkedIn: https://linkedin.com/in/wedja-souza
 
 ---
 

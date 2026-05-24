@@ -1,0 +1,12 @@
+.idea/
+__pycache__/
+.git/
+.venv/
+outputs/
+.env
+.env.example
+.gitignore
+LICENSE
+pyproject.toml
+README.MD
+*.pyc
